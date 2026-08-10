@@ -6,90 +6,93 @@ import {
   text,
   timestamp,
   numeric,
+  integer,
   primaryKey,
   pgEnum,
   decimal,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
-export const users = pgTable("users" , 
-  {
-    id : uuid("id")
-         .defaultRandom()
-         .primaryKey() ,
+export const otpPurposeEnum = pgEnum("otp_purpose", [
+  "signup_verification",
+  "forgot_password",
+]);
 
-    name : varchar("name" ,{length : 255})
-           .notNull() ,
+export const users = pgTable("users", {
+  id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
 
-    email : varchar("email", {length : 255})
-            .unique() ,
+  name: varchar("name", { length: 255 })
+      .notNull(),
 
-    phone : varchar("phone" , {length : 15})
-            .unique() ,
+  email: varchar("email", { length: 255 })
+      .unique(),
 
-    profilePhotoUrl : text("profile_photo_url") ,
+  phone: varchar("phone", { length: 15 })
+      .unique(),
 
-    passwordHash : varchar("password_hash" , {length : 255})
-                    .notNull() ,
-    
-    baseCurrency : varchar("base_currency" , {length : 20})
-                    .default("INR") ,
-    
-    createdAt: timestamp("created_at")
-               .defaultNow()
-               .notNull(),
+  profilePhotoUrl: text("profile_photo_url"),
 
-    updatedAt: timestamp("updated_at")
-               .defaultNow()
-               .notNull(),
-            
-  }
-);
+  passwordHash: varchar("password_hash", { length: 255 })
+      .notNull(),
 
-export const groups = pgTable("groups" ,
-   {
-     id : uuid("id")
-          .defaultRandom()
-          .primaryKey() ,
+  baseCurrency: varchar("base_currency", { length: 20 })
+      .default("INR"),
 
-      name : varchar("name" , {length : 50})
-             .notNull() ,
+  isVerified: boolean("is_verified")
+      .default(false)
+      .notNull(),
 
-      groupPhoto : text("group_photo") ,
+  createdAt: timestamp("created_at")
+      .defaultNow()
+      .notNull(),
 
-      createdBy : uuid("created_by")
-                  .references(()=>users.id)
-                   .notNull(),
+  updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .notNull(),
+});
 
-      isOneOnOne : boolean("is_one_on_one")
-                   .default(true)
-                   .notNull() ,
+export const groups = pgTable("groups", {
+  id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
 
-      createdAt : timestamp("created_at")
-                  .defaultNow()
-                  .notNull(),
-   });
+  name: varchar("name", { length: 50 })
+      .notNull(),
 
-   export const groupMember = pgTable("group_member" , 
-     {
-       id : uuid("id")
-            .defaultRandom()
-            .primaryKey() ,
+  groupPhoto: text("group_photo"),
 
-       groupId : uuid("group_id")
-                 .references(()=> groups.id)
-                 .notNull() ,
+  createdBy: uuid("created_by")
+      .references(() => users.id)
+      .notNull(),
 
-       userId : uuid("user_id")
-                .references(() => users.id)
-                .notNull() ,
+  isOneOnOne: boolean("is_one_on_one")
+      .default(false)
+      .notNull(),
 
-      isActive : boolean("is_active")
-                 .default(true)
-                 .notNull(),
+  createdAt: timestamp("created_at")
+      .defaultNow()
+      .notNull(),
+});
 
-     }
-   );
+export const groupMember = pgTable("group_member", {
+  id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+  groupId: uuid("group_id")
+      .references(() => groups.id)
+      .notNull(),
+
+  userId: uuid("user_id")
+      .references(() => users.id)
+      .notNull(),
+
+  isActive: boolean("is_active")
+      .default(true)
+      .notNull(),
+});
 
 export const expenses = pgTable("expenses", {
   id: uuid("id")
@@ -174,3 +177,103 @@ export const settlements = pgTable("settlements", {
       .defaultNow()
       .notNull(),
 });
+
+export const otps = pgTable("otps", {
+  id: uuid("id")
+      .defaultRandom()
+      .primaryKey(),
+
+  userId: uuid("user_id")
+      .references(() => users.id)
+      .notNull(),
+
+  code: varchar("code", { length: 6 })
+      .notNull(),
+
+  purpose: otpPurposeEnum("purpose")
+      .notNull(),
+
+  attemptCount: integer("attempt_count")
+      .default(0)
+      .notNull(),
+
+  expiresAt: timestamp("expires_at")
+      .notNull(),
+
+  createdAt: timestamp("created_at")
+      .defaultNow()
+      .notNull(),
+});
+
+export const usersRelations = relations(users, ({ many }) => ({
+  groupsCreated: many(groups),
+  groupMemberships: many(groupMember),
+  expensesPaid: many(expenses),
+  expenseSplits: many(expenseSplits),
+  settlementsSent: many(settlements, { relationName: "fromUser" }),
+  settlementsReceived: many(settlements, { relationName: "toUser" }),
+  otps: many(otps),
+}));
+
+export const groupsRelations = relations(groups, ({ one, many }) => ({
+  creator: one(users, {
+    fields: [groups.createdBy],
+    references: [users.id],
+  }),
+  members: many(groupMember),
+  expenses: many(expenses),
+}));
+
+export const groupMemberRelations = relations(groupMember, ({ one }) => ({
+  group: one(groups, {
+    fields: [groupMember.groupId],
+    references: [groups.id],
+  }),
+  user: one(users, {
+    fields: [groupMember.userId],
+    references: [users.id],
+  }),
+}));
+
+export const expensesRelations = relations(expenses, ({ one, many }) => ({
+  group: one(groups, {
+    fields: [expenses.groupId],
+    references: [groups.id],
+  }),
+  paidByUser: one(users, {
+    fields: [expenses.paidBy],
+    references: [users.id],
+  }),
+  splits: many(expenseSplits),
+}));
+
+export const expenseSplitsRelations = relations(expenseSplits, ({ one }) => ({
+  expense: one(expenses, {
+    fields: [expenseSplits.expenseId],
+    references: [expenses.id],
+  }),
+  user: one(users, {
+    fields: [expenseSplits.userId],
+    references: [users.id],
+  }),
+}));
+
+export const settlementsRelations = relations(settlements, ({ one }) => ({
+  fromUserRef: one(users, {
+    fields: [settlements.fromUser],
+    references: [users.id],
+    relationName: "fromUser",
+  }),
+  toUserRef: one(users, {
+    fields: [settlements.toUser],
+    references: [users.id],
+    relationName: "toUser",
+  }),
+}));
+
+export const otpsRelations = relations(otps, ({ one }) => ({
+  user: one(users, {
+    fields: [otps.userId],
+    references: [users.id],
+  }),
+}));

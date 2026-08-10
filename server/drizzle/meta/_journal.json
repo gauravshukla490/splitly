@@ -8,6 +8,20 @@
       "when": 1786179186981,
       "tag": "0000_next_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786366975945,
+      "tag": "0001_funny_nova",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786369177043,
+      "tag": "0002_sloppy_eternals",
+      "breakpoints": true
     }
   ]
 }
