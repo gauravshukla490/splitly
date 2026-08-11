@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
-import authRoutes from "./routes/auth.js";
+import authRoutes from "./modules/auth/auth.routes";
 
 dotenv.config();
 
@@ -22,3 +22,4 @@ app.use("/api/auth", authRoutes);
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
