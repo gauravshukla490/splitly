@@ -148,14 +148,14 @@ export const login = async (req: Request, res: Response) => {
 
 export const verifyOtp = async (req: Request, res: Response) => {
   try {
-    // Step 1: Data nikalo
+   
     const { userId, code } = req.body;
 
     if (!userId || !code) {
       return res.status(400).json({ message: "userId and code are required" });
     }
 
-    // Step 2: Latest OTP record dhoondo
+    
     const [otpRecord] = await db
       .select()
       .from(otps)
@@ -163,22 +163,21 @@ export const verifyOtp = async (req: Request, res: Response) => {
       .orderBy(desc(otps.createdAt))
       .limit(1);
 
-    // Step 3: Record hi nahi mila
+   
     if (!otpRecord) {
       return res.status(400).json({ message: "No OTP found, please request a new one" });
     }
 
-    // Step 4: Expiry check
     if (new Date() > otpRecord.expiresAt) {
       return res.status(400).json({ message: "OTP expired" });
     }
 
-    // Step 5: Attempt limit check
+    
     if (otpRecord.attemptCount >= 5) {
       return res.status(429).json({ message: "Too many attempts, request a new OTP" });
     }
 
-    // Step 6: Code match check
+    
     if (otpRecord.code !== code) {
       await db
         .update(otps)
@@ -188,13 +187,13 @@ export const verifyOtp = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // Step 7: User ko verified mark karo
+    
     await db.update(users).set({ isVerified: true }).where(eq(users.id, userId));
 
-    // Step 8: OTP delete karo (reuse na ho)
+    
     await db.delete(otps).where(eq(otps.id, otpRecord.id));
 
-    // Step 9: Success
+    
     return res.status(200).json({ message: "Account verified successfully" });
   } catch (error) {
     console.error("Verify OTP error:", error);
@@ -204,32 +203,32 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
 export const forgotPassword = async (req: Request, res: Response) => {
   try {
-    // Step 1: Data nikalo
-    const { identifier } = req.body; // email ya phone
+    
+    const { identifier } = req.body; 
 
     if (!identifier) {
       return res.status(400).json({ message: "Email or phone is required" });
     }
 
-    // Step 2: User dhoondo
+   
     const [user] = await db
       .select()
       .from(users)
       .where(or(eq(users.email, identifier), eq(users.phone, identifier)))
       .limit(1);
 
-    // Step 3: User na mile to bhi generic success bhejo (security best practice)
+
     if (!user) {
       return res.status(200).json({
         message: "If an account exists, an OTP has been sent",
       });
     }
 
-    // Step 4: OTP generate karo
+    
     const otpCode = generateOtp();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Step 5: OTP save karo, purpose alag hai signup se
+  
     await db.insert(otps).values({
       userId: user.id,
       code: otpCode,
@@ -237,15 +236,15 @@ export const forgotPassword = async (req: Request, res: Response) => {
       expiresAt,
     });
 
-    // Step 6: Email bhejo
+  
     if (user.email) {
       await sendOtpEmail(user.email, otpCode);
     }
 
-    // Step 7: Response
+    
     return res.status(200).json({
       message: "If an account exists, an OTP has been sent",
-      userId: user.id, // frontend ko reset-password step ke liye chahiye hoga
+      userId: user.id, 
     });
   } catch (error) {
     console.error("Forgot password error:", error);
@@ -255,14 +254,14 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
 export const resetPassword = async (req: Request, res: Response) => {
   try {
-    // Step 1: Data nikalo
+  
     const { userId, code, newPassword } = req.body;
 
     if (!userId || !code || !newPassword) {
       return res.status(400).json({ message: "userId, code, and newPassword are required" });
     }
 
-    // Step 2: Latest forgot-password OTP dhoondo
+    
     const [otpRecord] = await db
       .select()
       .from(otps)
@@ -270,22 +269,21 @@ export const resetPassword = async (req: Request, res: Response) => {
       .orderBy(desc(otps.createdAt))
       .limit(1);
 
-    // Step 3: Record na mile
+    
     if (!otpRecord) {
       return res.status(400).json({ message: "No OTP found, please request a new one" });
     }
 
-    // Step 4: Expiry check
     if (new Date() > otpRecord.expiresAt) {
       return res.status(400).json({ message: "OTP expired" });
     }
 
-    // Step 5: Attempt limit
+    
     if (otpRecord.attemptCount >= 5) {
       return res.status(429).json({ message: "Too many attempts, request a new OTP" });
     }
 
-    // Step 6: Code match
+    
     if (otpRecord.code !== code) {
       await db
         .update(otps)
@@ -295,16 +293,16 @@ export const resetPassword = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // Step 7: Naya password hash karo
+    
     const newPasswordHash = await hashPassword(newPassword);
 
-    // Step 8: DB me update karo
+    
     await db.update(users).set({ passwordHash: newPasswordHash }).where(eq(users.id, userId));
 
-    // Step 9: OTP delete karo
+    
     await db.delete(otps).where(eq(otps.id, otpRecord.id));
 
-    // Step 10: Success
+  
     return res.status(200).json({ message: "Password reset successful" });
   } catch (error) {
     console.error("Reset password error:", error);

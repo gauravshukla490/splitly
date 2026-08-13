@@ -1,12 +1,9 @@
 import { Request, Response } from "express";
-import { db } from "../../db";
-import { expenses, expenseSplits, groupMember, users } from "../../db/schema";
+import { db } from "../../db/index.js";
+import { expenses, expenseSplits, groupMember, users } from "../../db/schema.js";
 import { eq, and, desc } from "drizzle-orm";
-import { getExchangeRate } from "../../utils/exchangeRate";
+import { getExchangeRate } from "../../utils/exchangeRate.js";
 
-// ============================================
-// ADD EXPENSE — equal split among active group members
-// ============================================
 export const addExpense = async (req: Request, res: Response) => {
   try {
     const paidBy = req.userId!;
@@ -17,7 +14,7 @@ export const addExpense = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "title, amount, and currency are required" });
     }
 
-    // Get all active members — expense splits equally among them
+    /
     const activeMembers = await db
       .select({ userId: groupMember.userId })
       .from(groupMember)
@@ -27,16 +24,15 @@ export const addExpense = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Group has no active members" });
     }
 
-    // Create the expense record
+  
     const [newExpense] = await db
       .insert(expenses)
       .values({ groupId, paidBy, title, amount, currency })
       .returning();
 
-    // Equal share per member
+    
     const shareAmount = Number(amount) / activeMembers.length;
 
-    // For each member, convert their share to their own base currency
     const splitRows = [];
     for (const member of activeMembers) {
       const [user] = await db
@@ -67,9 +63,6 @@ export const addExpense = async (req: Request, res: Response) => {
   }
 };
 
-// ============================================
-// GET EXPENSES BY GROUP
-// ============================================
 export const getExpensesByGroup = async (req: Request, res: Response) => {
   try {
     const { groupId } = req.params;
