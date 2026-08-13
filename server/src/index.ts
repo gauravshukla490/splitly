@@ -1,25 +1,27 @@
+import "dotenv/config";
 import express from "express";
-import cors from "cors";
 import cookieParser from "cookie-parser";
-import dotenv from "dotenv";
-import authRoutes from "./modules/auth/auth.routes";
 
-dotenv.config();
+import authRoutes from "./modules/auth/auth.routes.js";
+import groupRoutes from "./modules/groups/groups.routes.js";
+import expenseRoutes from "./modules/expenses/expenses.routes.js";
+import settlementRoutes from "./modules/settlements/settlements.routes.js";
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
-app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
 
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", message: "Splitwise server is running" });
+app.use("/api/auth", authRoutes);
+app.use("/api/groups", groupRoutes);
+app.use("/api/expenses", expenseRoutes);
+app.use("/api/settlements", settlementRoutes);
+
+app.get("/", (_req, res) => {
+  res.send("Splitlyy API is running");
 });
 
-app.use("/api/auth", authRoutes);
-
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
-

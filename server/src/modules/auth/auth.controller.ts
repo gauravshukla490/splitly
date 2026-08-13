@@ -1,16 +1,16 @@
 import { Request, Response } from "express";
-import { db } from "../../db/index";              
-import { users, otps } from "../../db/schema";     
+import { db } from "../../db/index.js";              
+import { users, otps } from "../../db/schema.js";     
 import { eq, or } from "drizzle-orm";              
-import { hashPassword } from "../../utils/hash";   
-import { generateOtp } from "../../utils/otp";
-import { sendOtpEmail } from "../../utils/sendEmail";
+import { hashPassword } from "../../utils/hash.js";   
+import { generateOtp } from "../../utils/otp.js";
+import { sendOtpEmail } from "../../utils/sendEmail.js";
 import { desc, and } from "drizzle-orm";
 
 // modules/auth/auth.controller.ts (add karo signup ke neeche)
 
-import { comparePassword } from "../../utils/hash";
-import { generateAccessToken, generateRefreshToken } from "../../utils/jwt";
+import { comparePassword } from "../../utils/hash.js";
+import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
 
 export const signup = async (req: Request, res: Response) => {
   try {
