@@ -14,7 +14,7 @@ export const addExpense = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "title, amount, and currency are required" });
     }
 
-    /
+    
     const activeMembers = await db
       .select({ userId: groupMember.userId })
       .from(groupMember)

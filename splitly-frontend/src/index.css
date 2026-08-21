@@ -1,0 +1,34 @@
+ @import "tailwindcss";
+@config "../tailwind.config.js";
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    @apply bg-paper text-ink font-body;
+  }
+  h1, h2, h3 {
+    @apply font-display;
+  }
+  ::selection {
+    @apply bg-gold/30;
+  }
+}
+
+@layer components {
+  /* A torn-receipt edge used at the top of ledger cards */
+  .receipt-edge {
+    background-image: radial-gradient(circle at 6px 0, transparent 6px, #F7F4EC 6.5px);
+    background-size: 12px 6px;
+    background-repeat: repeat-x;
+    background-position: top;
+  }
+
+  .amount-positive {
+    @apply text-moss font-mono tabular-nums;
+  }
+  .amount-negative {
+    @apply text-rust font-mono tabular-nums;
+  }
+}

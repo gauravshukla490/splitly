@@ -1,4 +1,4 @@
-// Fetches a live conversion rate using Frankfurter (free, no API key needed)
+
 export async function getExchangeRate(from: string, to: string): Promise<number> {
   if (from === to) return 1;
 

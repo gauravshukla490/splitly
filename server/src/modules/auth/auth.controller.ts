@@ -6,25 +6,20 @@ import { hashPassword } from "../../utils/hash.js";
 import { generateOtp } from "../../utils/otp.js";
 import { sendOtpEmail } from "../../utils/sendEmail.js";
 import { desc, and } from "drizzle-orm";
-
-// modules/auth/auth.controller.ts (add karo signup ke neeche)
-
+import { verifyRefreshToken ,generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
 import { comparePassword } from "../../utils/hash.js";
-import { generateAccessToken, generateRefreshToken } from "../../utils/jwt.js";
+
 
 export const signup = async (req: Request, res: Response) => {
   try {
-    // Step 1: Client se data nikal lo request body se
     const { name, email, phone, password } = req.body;
 
-    // Step 2: Basic validation — zaroori fields hain ya nahi
     if (!name || !password || (!email && !phone)) {
       return res.status(400).json({
         message: "Name, password, and either email or phone are required",
       });
     }
 
-    // Step 3: Duplicate check — email ya phone pehle se to nahi hai
     const existingUser = await db
       .select()
       .from(users)
@@ -40,10 +35,9 @@ export const signup = async (req: Request, res: Response) => {
       return res.status(409).json({ message: "User already exists" });
     }
 
-    // Step 4: Password ko hash karo — kabhi bhi plain password store nahi karte
+   
     const passwordHash = await hashPassword(password);
 
-    // Step 5: User ko DB me insert karo, isVerified false rahega by default
     const [newUser] = await db
       .insert(users)
       .values({
@@ -52,15 +46,14 @@ export const signup = async (req: Request, res: Response) => {
         phone,
         passwordHash,
       })
-      .returning(); // returning() se insert hui row wapas mil jati hai (id samet)
+      .returning(); 
 
-    // Step 6: OTP generate karo
     const otpCode = generateOtp();
 
-    // 10 minute baad expire hoga
+  
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Step 7: OTP ko DB me save karo
+   
     await db.insert(otps).values({
       userId: newUser.id,
       code: otpCode,
@@ -68,12 +61,12 @@ export const signup = async (req: Request, res: Response) => {
       expiresAt,
     });
 
-    // Step 8: OTP email se bhejo (agar email diya hai)
+    
     if (email) {
       await sendOtpEmail(email, otpCode);
     }
 
-    // Step 9: Success response — password hash kabhi bhi response me mat bhejo
+    
     return res.status(201).json({
       message: "Signup successful. OTP sent for verification.",
       userId: newUser.id,
@@ -86,54 +79,53 @@ export const signup = async (req: Request, res: Response) => {
 
 export const login = async (req: Request, res: Response) => {
   try {
-    // Step 1: Data nikalo
-    const { identifier, password } = req.body; // identifier = email ya phone
+    
+    const { identifier, password } = req.body; 
 
-    // Step 2: Validation
+   
     if (!identifier || !password) {
       return res.status(400).json({ message: "Identifier and password are required" });
     }
 
-    // Step 3: User dhoondo email ya phone se
+   
     const [user] = await db
       .select()
       .from(users)
       .where(or(eq(users.email, identifier), eq(users.phone, identifier)))
       .limit(1);
 
-    // Step 4: User nahi mila
+  
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Step 5: Password match karo
+  
     const isMatch = await comparePassword(password, user.passwordHash);
 
-    // Step 6: Match nahi hua
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Step 7: Tokens generate karo
+   
     const accessToken = generateAccessToken(user.id);
     const refreshToken = generateRefreshToken(user.id);
 
-    // Step 8: httpOnly cookies me set karo (JS se access nahi ho sakte, XSS-safe)
+    
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // production me sirf HTTPS pe
+      secure: process.env.NODE_ENV === "production", 
       sameSite: "strict",
-      maxAge: 15 * 60 * 1000, // 15 min
+      maxAge: 15 * 60 * 1000, 
     });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 din
+      maxAge: 7 * 24 * 60 * 60 * 1000, 
     });
 
-    // Step 9: Response — password hash kabhi mat bhejna
+    
     return res.status(200).json({
       message: "Login successful",
       user: { id: user.id, name: user.name, email: user.email, isVerified: user.isVerified },
@@ -308,4 +300,40 @@ export const resetPassword = async (req: Request, res: Response) => {
     console.error("Reset password error:", error);
     return res.status(500).json({ message: "Something went wrong" });
   }
+};
+
+export const refreshToken = async (req: Request, res: Response) => {
+  try {
+    const token = req.cookies?.refreshToken;
+
+    if (!token) {
+      return res.status(401).json({ message: "No refresh token provided" });
+    }
+
+    let payload: { userId: string };
+    try {
+      payload = verifyRefreshToken(token);
+    } catch {
+      return res.status(401).json({ message: "Invalid or expired refresh token" });
+    }
+
+    const newAccessToken = generateAccessToken(payload.userId);
+    res.cookie("accessToken", newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 15 * 60 * 1000,
+    });
+
+    return res.status(200).json({ message: "Access token refreshed" });
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    return res.status(500).json({ message: "Something went wrong" });
+  }
+};
+
+export const logout = async (_req: Request, res: Response) => {
+  res.clearCookie("accessToken");
+  res.clearCookie("refreshToken");
+  return res.status(200).json({ message: "Logged out successfully" });
 };

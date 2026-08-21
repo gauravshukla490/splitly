@@ -1,13 +1,13 @@
 import { Router } from "express";
-import { authMiddleware } from "../../middlewares/authMiddleware";
+import { authMiddleware } from "../../middlewares/authMiddleware.js";
 import {
   createGroup,
   addMember,
   removeMember,
   leaveGroup,
   getGroupDetails,
-} from "./groups.controller";
-import { getGroupBalances } from "./balances.controller";
+} from "./groups.controller.js";
+import { getGroupBalances } from "./balances.controller.js";
 
 const router = Router();
 
