@@ -9,11 +9,8 @@ import {
   removeMember,
   leaveGroup,
   createSettlement,
-  Group,
-  Member,
-  Expense,
-  BalancesResponse,
 } from "../lib/groups-api";
+import type { Group, Member, Expense, BalancesResponse } from "../lib/groups-api";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth-context";
 import { Navbar } from "../components/navbar";
@@ -125,7 +122,7 @@ export function GroupDetailPage() {
     if (!groupId) return;
     try {
       await leaveGroup(groupId);
-      window.location.href = "/";
+      window.location.href = "/dashboard";
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not leave group");
     }
@@ -153,7 +150,7 @@ export function GroupDetailPage() {
     <div className="min-h-screen">
       <Navbar />
       <main className="max-w-4xl mx-auto px-6 py-10">
-        <Link to="/" className="text-xs text-ink-soft underline decoration-dotted">
+        <Link to="/dashboard" className="text-xs text-ink-soft underline decoration-dotted">
           ← All groups
         </Link>
 

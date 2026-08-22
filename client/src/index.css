@@ -19,7 +19,7 @@
 @layer components {
   /* A torn-receipt edge used at the top of ledger cards */
   .receipt-edge {
-    background-image: radial-gradient(circle at 6px 0, transparent 6px, #F7F4EC 6.5px);
+    background-image: radial-gradient(circle at 6px 0, transparent 6px, #FBF9F2 6.5px);
     background-size: 12px 6px;
     background-repeat: repeat-x;
     background-position: top;
@@ -30,5 +30,13 @@
   }
   .amount-negative {
     @apply text-rust font-mono tabular-nums;
+  }
+
+  /* Dashed-border card used across landing + auth surfaces */
+  .dashed-card {
+    @apply border-2 border-dashed border-moss/30 bg-white transition-all duration-300;
+  }
+  .dashed-card:hover {
+    @apply border-moss/60;
   }
 }
