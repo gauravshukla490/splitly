@@ -3,7 +3,7 @@ import { HTMLAttributes } from "react";
 export function Card({ className = "", children, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`bg-white/70 border border-paper-line shadow-[0_1px_0_rgba(0,0,0,0.03)] ${className}`}
+      className={`bg-white border-2 border-dashed border-moss/25 rounded-2xl transition-all duration-300 ${className}`}
       {...props}
     >
       {children}
@@ -15,7 +15,7 @@ export function ReceiptCard({ className = "", children, ...props }: HTMLAttribut
   return (
     <div className={`relative ${className}`} {...props}>
       <div className="receipt-edge h-2 w-full" />
-      <div className="bg-white/70 border-x border-paper-line px-6 py-5">{children}</div>
+      <div className="bg-white border-x-2 border-dashed border-moss/25 px-6 py-5">{children}</div>
       <div className="receipt-edge h-2 w-full rotate-180" />
     </div>
   );

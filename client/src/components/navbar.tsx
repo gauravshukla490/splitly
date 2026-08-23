@@ -1,4 +1,3 @@
-
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth-context";
 import { logout as logoutApi } from "../lib/auth-api";
@@ -18,9 +17,12 @@ export function Navbar() {
   };
 
   return (
-    <header className="border-b border-paper-line">
-      <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-        <Link to="/" className="font-display text-xl tracking-tight text-ink">
+    <header className="border-b-2 border-dashed border-moss/20 bg-cream/80 backdrop-blur sticky top-0 z-10">
+      <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+        <Link
+          to={user ? "/dashboard" : "/"}
+          className="font-display text-xl tracking-tight text-ink"
+        >
           Splitlyy<span className="text-moss">.</span>
         </Link>
         {user && (

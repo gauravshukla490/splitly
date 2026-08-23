@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./lib/auth-context";
 import { ProtectedRoute } from "./components/protected-route";
-
+import { LandingPage } from "./pages/landing";
 import { LoginPage } from "./pages/login";
 import { SignupPage } from "./pages/signup";
 import { VerifyOtpPage } from "./pages/verify-otp";
@@ -15,6 +15,7 @@ export function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/verify-otp" element={<VerifyOtpPage />} />
@@ -22,7 +23,7 @@ export function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <DashboardPage />

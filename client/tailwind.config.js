@@ -4,12 +4,17 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: "#F7F4EC",
-        "paper-line": "#E4DFCF",
+        paper: "#FBF9F2",
+        cream: "#FBF9F2",
+        "cream-dark": "#F2EEDF",
+        "paper-line": "#DCE8DE",
         ink: "#1C2B24",
-        "ink-soft": "#4A5B52",
-        moss: "#2F6B4F",
-        "moss-dark": "#204A37",
+        "ink-soft": "#5B6B62",
+        moss: "#2F8F5F",
+        "moss-dark": "#1F6B45",
+        "moss-light": "#E4F5EA",
+        sage: "#8FCBA6",
+        "sage-light": "#EEF8F1",
         rust: "#B3413E",
         gold: "#B8862E",
       },
@@ -21,6 +26,20 @@ export default {
       backgroundImage: {
         ledger:
           "repeating-linear-gradient(transparent, transparent 27px, #E4DFCF 28px)",
+      },
+      keyframes: {
+        "pop-in": {
+          "0%": { opacity: 0, transform: "translateY(8px)" },
+          "100%": { opacity: 1, transform: "translateY(0)" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-6px)" },
+        },
+      },
+      animation: {
+        "pop-in": "pop-in 0.5s ease-out both",
+        float: "float 4s ease-in-out infinite",
       },
     },
   },

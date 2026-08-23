@@ -1,6 +1,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { getMyGroups, createGroup, Group } from "../lib/groups-api";
+import { getMyGroups, createGroup } from "../lib/groups-api";
+import type { Group } from "../lib/groups-api";
 import { ApiError } from "../lib/api";
 import { Navbar } from "../components/navbar";
 import { Input } from "../components/ui/input";
