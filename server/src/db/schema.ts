@@ -61,6 +61,8 @@ export const groups = pgTable("groups", {
   name: varchar("name", { length: 50 })
       .notNull(),
 
+  description: text("description").default("").notNull(),
+
   groupPhoto: text("group_photo"),
 
   createdBy: uuid("created_by")
@@ -89,6 +91,14 @@ export const groupMember = pgTable("group_member", {
       .references(() => users.id)
       .notNull(),
 
+  role: varchar("role", { length: 20 })
+      .default("member")
+      .notNull(),
+
+  joinedAt: timestamp("joined_at")
+      .defaultNow()
+      .notNull(),
+
   isActive: boolean("is_active")
       .default(true)
       .notNull(),
@@ -99,9 +109,9 @@ export const expenses = pgTable("expenses", {
       .defaultRandom()
       .primaryKey(),
 
+  // null for one-on-one expenses
   groupId: uuid("group_id")
-      .references(() => groups.id)
-      .notNull(),
+      .references(() => groups.id),
 
   paidBy: uuid("paid_by")
       .references(() => users.id)
@@ -114,7 +124,24 @@ export const expenses = pgTable("expenses", {
       .notNull(),
 
   currency: varchar("currency", { length: 10 })
+      .default("INR")
       .notNull(),
+
+  category: varchar("category", { length: 50 })
+      .default("Other")
+      .notNull(),
+
+  // "equal" | "percentage" | "exact"
+  splitType: varchar("split_type", { length: 20 })
+      .default("equal")
+      .notNull(),
+
+  date: timestamp("date")
+      .defaultNow()
+      .notNull(),
+
+  createdBy: uuid("created_by")
+      .references(() => users.id),
 
   createdAt: timestamp("created_at")
       .defaultNow()
@@ -137,10 +164,16 @@ export const expenseSplits = pgTable("expense_splits", {
   amountOwed: numeric("amount_owed", { precision: 12, scale: 2 })
       .notNull(),
 
+  // true when this user's share is already covered (e.g. the payer's own split)
+  paid: boolean("paid")
+      .default(false)
+      .notNull(),
+
   convertedAmount: numeric("converted_amount", { precision: 12, scale: 2 })
       .notNull(),
 
   exchangeRate: numeric("exchange_rate", { precision: 12, scale: 6 })
+      .default("1")
       .notNull(),
 });
 
@@ -161,9 +194,24 @@ export const settlements = pgTable("settlements", {
       .notNull(),
 
   currency: varchar("currency", { length: 10 })
+      .default("INR")
       .notNull(),
 
   note: text("note"),
+
+  // null for one-on-one settlements
+  groupId: uuid("group_id")
+      .references(() => groups.id),
+
+  // expenses this settlement covers
+  relatedExpenseIds: uuid("related_expense_ids").array(),
+
+  date: timestamp("date")
+      .defaultNow()
+      .notNull(),
+
+  createdBy: uuid("created_by")
+      .references(() => users.id),
 
   fromConfirmed: boolean("from_confirmed")
       .default(false)
