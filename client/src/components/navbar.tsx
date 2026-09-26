@@ -27,7 +27,10 @@ export function Navbar() {
         </Link>
         {user && (
           <div className="flex items-center gap-4 text-sm">
-            <span className="text-ink-soft">{user.name}</span>
+            <Link to="/dashboard" className="text-ink-soft hover:text-moss">Dashboard</Link>
+            <Link to="/contacts" className="text-ink-soft hover:text-moss">Contacts</Link>
+            <Link to="/expenses/new" className="text-ink-soft hover:text-moss">Add expense</Link>
+            <span className="text-ink">{user.name}</span>
             <Button variant="ghost" onClick={handleLogout}>
               Sign out
             </Button>

@@ -9,6 +9,10 @@ import { ForgotPasswordPage } from "./pages/forgot-password";
 import { ResetPasswordPage } from "./pages/reset-password";
 import { DashboardPage } from "./pages/dashboard";
 import { GroupDetailPage } from "./pages/group-detail";
+import { ContactsPage } from "./pages/contacts";
+import { NewExpensePage } from "./pages/new-expense";
+import { PersonPage } from "./pages/person";
+import { SettlementPage } from "./pages/settlement";
 
 export function App() {
   return (
@@ -35,6 +39,38 @@ export function App() {
             element={
               <ProtectedRoute>
                 <GroupDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/contacts"
+            element={
+              <ProtectedRoute>
+                <ContactsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/expenses/new"
+            element={
+              <ProtectedRoute>
+                <NewExpensePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/person/:id"
+            element={
+              <ProtectedRoute>
+                <PersonPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settlements/:type/:id"
+            element={
+              <ProtectedRoute>
+                <SettlementPage />
               </ProtectedRoute>
             }
           />

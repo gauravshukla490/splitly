@@ -1,331 +1,241 @@
-import { useEffect, useState, FormEvent } from "react";
-import { useParams, Link } from "react-router-dom";
-import {
-  getGroupDetails,
-  getExpensesByGroup,
-  addExpense,
-  getGroupBalances,
-  addMember,
-  removeMember,
-  leaveGroup,
-  createSettlement,
-} from "../lib/groups-api";
-import type { Group, Member, Expense, BalancesResponse } from "../lib/groups-api";
-import { ApiError } from "../lib/api";
-import { useAuth } from "../lib/auth-context";
-import { Navbar } from "../components/navbar";
-import { Input } from "../components/ui/input";
+import { useEffect, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { Page, BackButton, Loading } from "../components/page";
+import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Alert } from "../components/ui/alert";
-import { Card, ReceiptCard } from "../components/ui/card";
+import { Avatar } from "../components/ui/avatar";
+import { Tabs } from "../components/ui/tabs";
+import { UserSearch } from "../components/user-search";
+import { ExpenseList } from "../components/expense-list";
+import { SettlementsList } from "../components/settlements-list";
+import { useAuth } from "../lib/auth-context";
+import { addMember, deleteExpense, getGroupExpenses, leaveGroup, removeMember } from "../lib/services";
+import type { Expense } from "../lib/services";
+import { errorMessage, money } from "../lib/format";
+
+type Data = Awaited<ReturnType<typeof getGroupExpenses>>;
+type Tab = "expenses" | "balances" | "members";
 
 export function GroupDetailPage() {
   const { groupId } = useParams<{ groupId: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
-  const [group, setGroup] = useState<Group | null>(null);
-  const [members, setMembers] = useState<Member[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [balances, setBalances] = useState<BalancesResponse | null>(null);
+  const [data, setData] = useState<Data | null>(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<Tab>("expenses");
 
-  // add expense form
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [expTitle, setExpTitle] = useState("");
-  const [expAmount, setExpAmount] = useState("");
-  const [expCurrency, setExpCurrency] = useState("INR");
-  const [addingExpense, setAddingExpense] = useState(false);
-
-  // add member form
-  const [showMemberForm, setShowMemberForm] = useState(false);
-  const [newMemberId, setNewMemberId] = useState("");
-  const [addingMember, setAddingMember] = useState(false);
-
-  const loadAll = async () => {
-    if (!groupId) return;
-    try {
-      const [detailsRes, expensesRes, balancesRes] = await Promise.all([
-        getGroupDetails(groupId),
-        getExpensesByGroup(groupId),
-        getGroupBalances(groupId),
-      ]);
-      setGroup(detailsRes.group);
-      setMembers(detailsRes.members);
-      setExpenses(expensesRes.expenses);
-      setBalances(balancesRes);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not load group");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const load = () =>
+    getGroupExpenses(groupId!)
+      .then(setData)
+      .catch((err) => setError(errorMessage(err, "Could not load group")));
 
   useEffect(() => {
-    loadAll();
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupId]);
 
-  const nameFor = (userId: string) =>
-    members.find((m) => m.userId === userId)?.name || userId.slice(0, 8);
-
-  const handleAddExpense = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!groupId) return;
-    setAddingExpense(true);
+  const run = async (action: () => Promise<unknown>, fallback: string) => {
     setError("");
     try {
-      await addExpense(groupId, {
-        title: expTitle,
-        amount: Number(expAmount),
-        currency: expCurrency,
-      });
-      setExpTitle("");
-      setExpAmount("");
-      setShowExpenseForm(false);
-      await loadAll();
+      await action();
+      await load();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not add expense");
-    } finally {
-      setAddingExpense(false);
+      setError(errorMessage(err, fallback));
     }
   };
 
-  const handleAddMember = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!groupId) return;
-    setAddingMember(true);
-    setError("");
-    try {
-      await addMember(groupId, newMemberId);
-      setNewMemberId("");
-      setShowMemberForm(false);
-      await loadAll();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not add member");
-    } finally {
-      setAddingMember(false);
-    }
-  };
-
-  const handleRemoveMember = async (memberId: string) => {
-    if (!groupId) return;
-    try {
-      await removeMember(groupId, memberId);
-      await loadAll();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not remove member");
-    }
+  const handleDelete = (expense: Expense) => {
+    if (!window.confirm("Are you sure you want to delete this expense? This action cannot be undone.")) return;
+    run(() => deleteExpense(expense.id), "Failed to delete expense");
   };
 
   const handleLeave = async () => {
-    if (!groupId) return;
     try {
-      await leaveGroup(groupId);
-      window.location.href = "/dashboard";
+      await leaveGroup(groupId!);
+      navigate("/dashboard");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not leave group");
+      setError(errorMessage(err, "Could not leave group"));
     }
   };
 
-  const handleSettle = async (toUser: string, amount: string, currency: string) => {
-    try {
-      await createSettlement({ toUser, amount: Number(amount), currency });
-      await loadAll();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not record settlement");
-    }
-  };
-
-  if (loading) {
+  if (!data) {
     return (
-      <div className="min-h-screen">
-        <Navbar />
-        <p className="max-w-4xl mx-auto px-6 py-10 text-ink-soft text-sm">Loading…</p>
-      </div>
+      <Page>
+        <BackButton />
+        {error ? <Alert>{error}</Alert> : <Loading />}
+      </Page>
     );
   }
 
+  const { group, members, expenses, settlements, balances, userLookupMap } = data;
+  const myBalance = balances.find((b) => b.id === user?.id)?.totalBalance ?? 0;
+  const nameOf = (id: string) => (id === user?.id ? "You" : userLookupMap[id]?.name || "Unknown");
+
   return (
-    <div className="min-h-screen">
-      <Navbar />
-      <main className="max-w-4xl mx-auto px-6 py-10">
-        <Link to="/dashboard" className="text-xs text-ink-soft underline decoration-dotted">
-          ← All groups
-        </Link>
+    <Page>
+      <BackButton />
 
-        <div className="flex items-baseline justify-between mt-3 mb-8">
-          <h1 className="text-3xl">{group?.name}</h1>
-          <Button variant="danger" onClick={handleLeave}>
-            Leave group
-          </Button>
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+        <div>
+          <h1 className="text-3xl">{group.name}</h1>
+          {group.description && <p className="text-sm text-ink-soft mt-1">{group.description}</p>}
+          <p className="text-xs text-ink-soft mt-1">{members.length} members</p>
         </div>
+        <div className="flex gap-2">
+          <Link to={`/settlements/group/${group.id}`}>
+            <Button variant="outline">Settle up</Button>
+          </Link>
+          <Link to={`/expenses/new?groupId=${group.id}`}>
+            <Button>Add expense</Button>
+          </Link>
+        </div>
+      </div>
 
-        {error && <div className="mb-6"><Alert>{error}</Alert></div>}
+      {error && <div className="mb-4"><Alert>{error}</Alert></div>}
 
-        <div className="grid md:grid-cols-3 gap-8">
-          {/* Left column: members + balances */}
-          <div className="md:col-span-1 flex flex-col gap-8">
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm uppercase tracking-widest text-ink-soft">
-                  Members
-                </h2>
-                <button
-                  onClick={() => setShowMemberForm((s) => !s)}
-                  className="text-xs text-moss underline decoration-dotted"
-                >
-                  {showMemberForm ? "cancel" : "+ add"}
-                </button>
+      <Card className="p-5 mb-6 flex items-center justify-between">
+        <p className="text-sm text-ink-soft">
+          {myBalance === 0 ? "You are all settled up" : myBalance > 0 ? "You are owed" : "You owe"}
+        </p>
+        <p className={`text-2xl ${myBalance > 0 ? "amount-positive" : myBalance < 0 ? "amount-negative" : "font-mono"}`}>
+          {money(myBalance)}
+        </p>
+      </Card>
+
+      <Tabs
+        tabs={[
+          { id: "expenses", label: `Expenses (${expenses.length})` },
+          { id: "balances", label: "Balances" },
+          { id: "members", label: `Members (${members.length})` },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+
+      {tab === "expenses" && (
+        <div className="flex flex-col gap-8">
+          <ExpenseList expenses={expenses} userLookup={userLookupMap} isGroupExpense onDelete={handleDelete} />
+          {settlements.length > 0 && (
+            <div>
+              <h2 className="text-sm uppercase tracking-widest text-ink-soft mb-3">Settlements</h2>
+              <SettlementsList settlements={settlements} userLookup={userLookupMap} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "balances" && (
+        <div className="flex flex-col gap-3">
+          {balances.map((b) => (
+            <Card key={b.id} className="p-4">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Avatar name={b.name} src={b.imageUrl} size={32} />
+                  <span className="font-medium">{b.id === user?.id ? "You" : b.name}</span>
+                </span>
+                <span className={b.totalBalance > 0 ? "amount-positive" : b.totalBalance < 0 ? "amount-negative" : "font-mono"}>
+                  {b.totalBalance > 0 ? "+" : b.totalBalance < 0 ? "-" : ""}
+                  {money(b.totalBalance)}
+                </span>
               </div>
-
-              {showMemberForm && (
-                <form onSubmit={handleAddMember} className="flex flex-col gap-2 mb-4">
-                  <Input
-                    placeholder="User ID to add"
-                    value={newMemberId}
-                    onChange={(e) => setNewMemberId(e.target.value)}
-                    required
-                  />
-                  <Button type="submit" disabled={addingMember} className="self-start">
-                    {addingMember ? "Adding…" : "Add member"}
-                  </Button>
-                </form>
-              )}
-
-              <ul className="flex flex-col gap-2">
-                {members.map((m) => (
-                  <li
-                    key={m.userId}
-                    className="flex items-center justify-between text-sm border-b border-paper-line pb-2"
-                  >
-                    <span>
-                      {m.name}
-                      {m.userId === user?.id && (
-                        <span className="text-ink-soft"> (you)</span>
-                      )}
-                    </span>
-                    {m.userId !== user?.id && (
-                      <button
-                        onClick={() => handleRemoveMember(m.userId)}
-                        className="text-xs text-rust/70 hover:text-rust"
-                      >
-                        remove
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-sm uppercase tracking-widest text-ink-soft mb-3">
-                Suggested settlements
-              </h2>
-              {balances && balances.settlementsSuggested.length === 0 ? (
-                <p className="text-sm text-ink-soft">All settled up.</p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {balances?.settlementsSuggested.map((s, i) => (
-                    <li key={i} className="text-sm">
-                      <p>
-                        <span className="font-medium">{s.fromUserName}</span> owes{" "}
-                        <span className="font-medium">{s.toUserName}</span>
-                      </p>
-                      <p className="amount-negative text-base">
-                        {s.currency} {s.amount}
-                      </p>
-                      {s.fromUserId === user?.id && (
-                        <Button
-                          variant="secondary"
-                          className="mt-1 text-xs px-2 py-1"
-                          onClick={() => handleSettle(s.toUserId, s.amount, s.currency)}
-                        >
-                          Mark as paid
-                        </Button>
-                      )}
+              {(b.owes.length > 0 || b.owedBy.length > 0) && (
+                <ul className="mt-3 text-xs text-ink-soft flex flex-col gap-1">
+                  {b.owes.map((o) => (
+                    <li key={`o-${o.to}`}>
+                      owes {nameOf(o.to)} <span className="amount-negative">{money(o.amount)}</span>
+                    </li>
+                  ))}
+                  {b.owedBy.map((o) => (
+                    <li key={`b-${o.from}`}>
+                      is owed <span className="amount-positive">{money(o.amount)}</span> by {nameOf(o.from)}
                     </li>
                   ))}
                 </ul>
               )}
-            </section>
-          </div>
-
-          {/* Right column: expenses */}
-          <div className="md:col-span-2">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm uppercase tracking-widest text-ink-soft">
-                Expenses
-              </h2>
-              <Button
-                variant="secondary"
-                onClick={() => setShowExpenseForm((s) => !s)}
-              >
-                {showExpenseForm ? "Cancel" : "+ Add expense"}
-              </Button>
-            </div>
-
-            {showExpenseForm && (
-              <Card className="p-6 mb-6">
-                <form onSubmit={handleAddExpense} className="grid sm:grid-cols-3 gap-4 items-end">
-                  <div className="sm:col-span-1">
-                    <Input
-                      label="Title"
-                      value={expTitle}
-                      onChange={(e) => setExpTitle(e.target.value)}
-                      placeholder="Hotel booking"
-                      required
-                    />
-                  </div>
-                  <Input
-                    label="Amount"
-                    type="number"
-                    step="0.01"
-                    value={expAmount}
-                    onChange={(e) => setExpAmount(e.target.value)}
-                    required
-                  />
-                  <Input
-                    label="Currency"
-                    value={expCurrency}
-                    onChange={(e) => setExpCurrency(e.target.value.toUpperCase())}
-                    maxLength={3}
-                    required
-                  />
-                  <Button type="submit" disabled={addingExpense} className="sm:col-span-3">
-                    {addingExpense ? "Adding…" : "Split equally among members"}
-                  </Button>
-                </form>
-              </Card>
-            )}
-
-            {expenses.length === 0 ? (
-              <Card className="p-10 text-center">
-                <p className="text-ink-soft">No expenses logged yet.</p>
-              </Card>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {expenses.map((exp) => (
-                  <ReceiptCard key={exp.id}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-display text-lg">{exp.title}</p>
-                        <p className="text-xs text-ink-soft">
-                          paid by {nameFor(exp.paidBy)} ·{" "}
-                          {new Date(exp.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <p className="font-mono text-lg tabular-nums">
-                        {exp.currency} {exp.amount}
-                      </p>
-                    </div>
-                  </ReceiptCard>
-                ))}
-              </div>
-            )}
-          </div>
+            </Card>
+          ))}
         </div>
-      </main>
+      )}
+
+      {tab === "members" && (
+        <MembersTab
+          members={members}
+          myId={user?.id}
+          onAdd={(userId) => run(() => addMember(groupId!, userId), "Could not add member")}
+          onRemove={(memberId) => run(() => removeMember(groupId!, memberId), "Could not remove member")}
+          onLeave={handleLeave}
+        />
+      )}
+    </Page>
+  );
+}
+
+function MembersTab({
+  members,
+  myId,
+  onAdd,
+  onRemove,
+  onLeave,
+}: {
+  members: Data["members"];
+  myId?: string;
+  onAdd: (userId: string) => void;
+  onRemove: (memberId: string) => void;
+  onLeave: () => void;
+}) {
+  const [showAdd, setShowAdd] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card className="p-4">
+        <ul className="flex flex-col gap-3">
+          {members.map((m) => (
+            <li key={m.id} className="flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Avatar name={m.name} src={m.imageUrl} size={32} />
+                <span className="text-sm">
+                  {m.name}
+                  {m.id === myId && <span className="text-ink-soft"> (you)</span>}
+                </span>
+                {m.role === "admin" && (
+                  <span className="text-[10px] uppercase tracking-widest rounded-full bg-moss-light text-moss px-2 py-0.5">
+                    admin
+                  </span>
+                )}
+              </span>
+              {m.id !== myId && (
+                <button onClick={() => onRemove(m.id)} className="text-xs text-rust/70 hover:text-rust">
+                  remove
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      {showAdd ? (
+        <Card className="p-4">
+          <UserSearch
+            label="Add a member"
+            exclude={members.map((m) => m.id)}
+            onSelect={(u) => {
+              onAdd(u.id);
+              setShowAdd(false);
+            }}
+          />
+        </Card>
+      ) : null}
+
+      <div className="flex gap-2">
+        <Button variant="secondary" onClick={() => setShowAdd((s) => !s)}>
+          {showAdd ? "Cancel" : "+ Add member"}
+        </Button>
+        <Button variant="danger" onClick={onLeave}>
+          Leave group
+        </Button>
+      </div>
     </div>
   );
 }
