@@ -58,47 +58,61 @@ export function NewExpensePage() {
   }, []);
 
   useEffect(() => {
-    if (!groupId) {
-      setGroupMembers([]);
-      return;
-    }
+    if (!groupId) return;
     getGroupWithMembers(groupId)
       .then((res) => setGroupMembers(res.selectGroup.member))
       .catch((err) => setError(errorMessage(err, "Could not load group")));
   }, [groupId]);
 
   const participants: Participant[] = useMemo(
-    () => (type === "group" ? groupMembers : otherPerson ? [me, otherPerson] : [me]),
+    () =>
+      type === "group"
+        ? groupId
+          ? groupMembers
+          : []
+        : otherPerson
+          ? [me, otherPerson]
+          : [me],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [type, groupMembers, otherPerson, user?.id]
+    [type, groupId, groupMembers, otherPerson, user?.id]
   );
 
-  // reset custom values when the participant set or split type changes
-  useEffect(() => setCustom({}), [splitType, participants.length]);
-
   const total = parseFloat(amount) || 0;
+
+  // Per-person input value (percent or amount) for the percentage/exact modes.
+  // People whose field was edited keep their value; everyone else shares
+  // whatever is left, so the split rebalances as you type.
+  const inputValues: number[] = useMemo(() => {
+    if (splitType === "equal" || participants.length === 0) return [];
+    const base = splitType === "percentage" ? 100 : total;
+    const edited = participants.filter((p) => custom[p.id] !== undefined);
+    const editedSum = edited.reduce((sum, p) => sum + (parseFloat(custom[p.id]) || 0), 0);
+    const untouched = participants.length - edited.length;
+    const share = untouched > 0 ? Math.max(base - editedSum, 0) / untouched : 0;
+
+    return participants.map((p) =>
+      custom[p.id] !== undefined ? parseFloat(custom[p.id]) || 0 : share
+    );
+  }, [participants, splitType, custom, total]);
 
   const splits: Split[] = useMemo(() => {
     if (total <= 0 || participants.length === 0) return [];
     const n = participants.length;
 
-    let amounts: number[];
-    if (splitType === "equal") {
-      amounts = participants.map(() => round2(total / n));
-    } else if (splitType === "percentage") {
-      amounts = participants.map((p) => {
-        const pct = custom[p.id] !== undefined ? parseFloat(custom[p.id]) || 0 : 100 / n;
-        return round2((total * pct) / 100);
-      });
-    } else {
-      amounts = participants.map((p) =>
-        custom[p.id] !== undefined ? parseFloat(custom[p.id]) || 0 : round2(total / n)
-      );
-    }
+    const amounts =
+      splitType === "equal"
+        ? participants.map(() => round2(total / n))
+        : splitType === "percentage"
+          ? inputValues.map((pct) => round2((total * pct) / 100))
+          : inputValues.map(round2);
 
-    // push any rounding remainder onto the first participant for the equal split
-    if (splitType === "equal") {
-      amounts[0] = round2(amounts[0] + (total - amounts.reduce((a, b) => a + b, 0)));
+    // Push the rounding remainder (e.g. 3 x 33.33 = 99.99) onto one person so it
+    // still adds up — the first untouched person, or the first person for equal.
+    const remainderIdx =
+      splitType === "equal" ? 0 : Math.max(participants.findIndex((p) => custom[p.id] === undefined), -1);
+    if (remainderIdx >= 0) {
+      const diff = round2(total - amounts.reduce((a, b) => a + b, 0));
+      if (Math.abs(diff) <= 0.05) amounts[remainderIdx] = round2(amounts[remainderIdx] + diff);
     }
 
     return participants.map((p, i) => ({
@@ -106,7 +120,7 @@ export function NewExpensePage() {
       amount: amounts[i],
       paid: p.id === paidByUserId,
     }));
-  }, [total, participants, splitType, custom, paidByUserId]);
+  }, [total, participants, splitType, custom, inputValues, paidByUserId]);
 
   const splitsTotal = splits.reduce((sum, s) => sum + s.amount, 0);
   const balanced = Math.abs(splitsTotal - total) <= 0.01;
@@ -227,7 +241,10 @@ export function NewExpensePage() {
                     { id: "exact", label: "Exact amounts" },
                   ]}
                   value={splitType}
-                  onChange={setSplitType}
+                  onChange={(t) => {
+                    setSplitType(t);
+                    setCustom({});
+                  }}
                 />
 
                 <ul className="flex flex-col gap-3">
@@ -244,12 +261,7 @@ export function NewExpensePage() {
                             step="0.01"
                             min="0"
                             className="w-24 bg-cream/60 border-2 border-dashed border-moss/20 rounded-lg px-2 py-1 text-sm text-right"
-                            value={
-                              custom[p.id] ??
-                              (splitType === "percentage"
-                                ? String(round2(100 / participants.length))
-                                : splits[i] ? String(splits[i].amount) : "")
-                            }
+                            value={custom[p.id] ?? String(round2(inputValues[i] ?? 0))}
                             onChange={(e) => setCustom((c) => ({ ...c, [p.id]: e.target.value }))}
                           />
                         )}
@@ -263,8 +275,13 @@ export function NewExpensePage() {
 
                 {total > 0 && (
                   <p className={`text-xs mt-3 ${balanced ? "text-ink-soft" : "text-rust"}`}>
+                    {splitType === "percentage" &&
+                      `${round2(inputValues.reduce((a, b) => a + b, 0))}% · `}
                     Total split: {money(splitsTotal)} / {money(total)}
-                    {!balanced && " — amounts must add up to the total"}
+                    {!balanced &&
+                      (splitType === "percentage"
+                        ? " — percentages must add up to 100%"
+                        : " — amounts must add up to the total")}
                   </p>
                 )}
               </div>

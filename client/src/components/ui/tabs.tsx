@@ -12,6 +12,7 @@ export function Tabs<T extends string>({
       {tabs.map((t) => (
         <button
           key={t.id}
+          type="button"
           onClick={() => onChange(t.id)}
           className={`px-4 py-2 text-sm transition-colors ${
             value === t.id ? "text-moss border-b-2 border-moss -mb-0.5" : "text-ink-soft hover:text-moss"
